@@ -1,0 +1,128 @@
+/* Marcelo Díez Domínguez - UO 293820 */
+/* Estilos generales del proyecto MotoGP - Desktop */
+
+/* Colores:                                                               Contrastes:
+   - Texto (#050533) sobre fondo de body (#F2F1E8)                        -> 17.21:1
+   - Texto en header (#F2F1E8) sobre fondo de header (#050533)            -> 17.21:1
+   - Texto (#050533) sobre fondo de encabezado de tabla (#F7F7F2)         -> 18.16:1
+
+   - Texto con enlace (#0A5571) sobre fondo (#F2F1E8) en body             -> 7.26:1
+   - Texto con enlace (hover) (#972620) sobre fondo (#F2F1E8) en body     -> 7.08:1
+   - Texto con enlace (hover) (#E3857D) sobre fondo (#050533) en header   -> 7.35:1
+*/
+
+/* Especificidad: 001 */
+body{
+  background-color: #F2F1E8;
+  color: #050533;
+  font-family: Verdana, Tahoma, sans-serif;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Especificidad: 001 */
+main{
+  padding: 16px;
+}
+
+/* Especificidad: 001 */
+header{
+  background-color: #050533;  /* El color de texto lo fijan h1/nav; aquí sólo defino el fondo del contenedor. Contraste comprobado. */
+  padding: 12px 16px;
+  border-bottom: 1px solid #E0DED4;
+}
+
+/* Especificidad: 002 */
+header + p{
+  font-size: 0.9rem;
+  margin: 8px 16px 16px;
+}
+
+/* Especificidad: 003 */
+header + p a{
+  color: #0A5571;  /* El fondo es el del body (claro). Contraste comprobado. */
+  text-decoration-line: underline;
+}
+
+/* Especificidad 013 */
+header + p a:hover{
+  color: #972620;  /* Mismo fondo claro del body. Contraste comprobado. */
+  text-decoration-line: underline;
+}
+
+/* Especificidad: 001 */
+h1{
+  color: #F2F1E8;  /* El fondo es el del header (oscuro). Contraste comprobado. */
+  margin: 0;
+}
+
+/* Especificidad: 003 */
+header h1 a{
+  color: inherit;  /* El color se hereda de h1 y el fondo lo aporta el header. Contraste comprobado. */
+  text-decoration-line: none;
+}
+
+/* Especificidad: 013 */
+header h1 a:hover{
+  text-decoration-line: underline;
+}
+
+/* Especificidad: 001 */
+nav{
+  color: #F2F1E8;  /* El fondo lo aporta header; nav sólo define el color del texto. Contraste comprobado. */
+  margin-top: 6px;
+}
+
+/* Especificidad: 002 */
+nav a{
+  color: inherit;  /* El color se hereda de nav y el fondo lo aporta el header. Contraste comprobado. */
+  text-decoration-line: none;
+  padding: 6px 8px;
+}
+
+/* Especificidad: 012 */
+nav a:hover{
+  color: #E3857D;  /* Fondo oscuro del header; estado hover sólo cambia el color. Contraste comprobado. */
+  text-decoration-line: underline;
+}
+
+/* Especificidad: 012 */
+nav a.active {
+  color: #E3857D;  /* Fondo oscuro del header; estado hover sólo cambia el color. Contraste comprobado. */
+  text-decoration-line: none;
+}
+
+/* Especificidad: 001, 001 */
+h2, h3{
+  color: inherit;  /* El color se hereda del body y el fondo es claro. Contraste comprobado. */
+}
+
+/* Especificidad: 002 */
+main a{
+  color: #0A5571;  /* Fondo claro del body en el contenido principal. Contraste comprobado. */
+  text-decoration-line: underline;
+}
+
+/* Especificidad: 012 */
+main a:hover{
+  color: #972620;  /* Mismo fondo claro. Contraste comprobado. */
+}
+
+/* Especificidad: 001 */
+table{
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid #E0DED4;
+}
+
+/* Especificidad: 001, 001 */
+th, td{
+  border: 1px solid #E0DED4;
+  padding: 8px;
+  color: inherit;  /* Heredan color del body; fondo es el de la tabla/celda. Contraste comprobado. */
+}
+
+/* Especificidad: 002 */
+thead th{
+  background-color: #F7F7F2;  /* El texto hereda color (#050533) del body. Contraste comprobado. */
+}
