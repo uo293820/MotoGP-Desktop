@@ -115,6 +115,23 @@ class Html:
             td.text = value
         return tr
 
+    def add_aside(self):
+        """
+        Añade un elemento <aside> y lo devuelve.
+        """
+        aside = ET.SubElement(self.main, "aside")
+        return aside
+
+    def add_link_item(self, ul, href):
+        """
+        Añade un elemento <li><a href="...">text</a></li> y lo devuelve.
+        """
+        li = ET.SubElement(ul, "li")
+        a_attrs = {"href": href}
+        a = ET.SubElement(li, "a", **a_attrs)
+        a.text = href
+        return li
+
 
     # ---------- Salida ----------
 
@@ -209,7 +226,11 @@ def generar_html(archivo_xml="circuitoEsquema.xml", archivo_html="InfoCircuito.h
         piloto = pos.findtext("u:piloto", default="", namespaces=ns)
         if numero or piloto:
             posiciones.append((numero, piloto))
-
+    
+    # Referencias
+    refs = [n.text.strip() for n in root.findall(".//u:referencias/u:ref", ns) if (n.text or "").strip()]
+    if not refs:
+        refs = [n.text.strip() for n in root.findall(".//referencias/ref") if (n.text or "").strip()]
 
     # ---------- Construcción del HTML ----------
     doc = Html(lang="es",
@@ -284,6 +305,14 @@ def generar_html(archivo_xml="circuitoEsquema.xml", archivo_html="InfoCircuito.h
         )
         for pos_num, pil in posiciones:
             doc.add_table_row_with_headers(tbody, [pos_num, pil], col_ids)
+
+    # Sección (aside) referencias
+    if refs:
+        aside = doc.add_aside()
+        doc.add_h2(aside, "Referencias")
+        ul_refs = doc.add_unordered_list(aside)
+        for url in refs:
+            doc.add_link_item(ul_refs, href=url)
 
     # Guardar
     doc.write(archivo_html)
