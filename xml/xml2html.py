@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 
 class Html:
-    def __init__(self, lang, titulo, css_href, icon_href, nombreCircuito):
+    def __init__(self, lang, titulo, css_href, css2_href, icon_href, nombreCircuito):
         self.html = ET.Element("html", lang=lang)
         
         self.head = ET.SubElement(self.html, "head")
@@ -20,6 +20,7 @@ class Html:
         ET.SubElement(self.head, "meta", name="description", content="Informe HTML generado desde circuitoEsquema.xml")
         ET.SubElement(self.head, "meta", name="viewport", content="width=device-width, initial-scale=1.0")
         ET.SubElement(self.head, "link", rel="stylesheet", type="text/css", href=css_href)
+        ET.SubElement(self.head, "link", rel="stylesheet", href=css2_href)
         ET.SubElement(self.head, "link", rel="icon", type="image/png", href=icon_href)
 
         # <body>
@@ -131,39 +132,79 @@ class Html:
         a = ET.SubElement(li, "a", **a_attrs)
         a.text = href
         return li
+
+    def _normalize_media_src(self, src: str) -> str:
+        """
+        Garantiza que 'src' apunte a ../multimedia/<archivo>.
+        - Si el XML trae solo 'foto.jpg' → ../multimedia/foto.jpg
+        - Si trae 'multimedia/foto.jpg' → ../multimedia/foto.jpg (normaliza)
+        - Si ya viene '../multimedia/foto.jpg' → se respeta.
+        """
+        MEDIA_BASE = "../multimedia"
+
+        if not src:
+            return src
+        s = src.strip()
+
+        # Si ya empieza por ../multimedia/, no tocamos
+        if s.startswith("../multimedia/"):
+            return s
+
+        # Si viene con otra carpeta (p.ej. 'multimedia/foto.jpg' o 'imgs/foto.jpg')
+        # nos quedamos con el nombre base y lo pegamos a ../multimedia/
+        name = Path(s).name
+        return f"{MEDIA_BASE}/{name}"
+
+    def add_picture(self, parent, src_full, alt):
+        """
+        Añade un elemento <picture> con 3 elementos <source> adaptativos y el elemento <img> base, y lo devuelve.
+
+        A partir de 'src_full' (p. ej. 'multimedia/foto.jpg') genera:
+          - 'multimedia/foto-movil.jpg'  (<= 465px)
+          - 'multimedia/foto-tablet.jpg' (<= 799px)
+          - 'multimedia/foto.jpg'        (>= 800px)
+        El atributo alt se toma del parámetro 'alt' (si no se da, usa el nombre base).
+        """
+        # Normaliza la ruta base al directorio ../multimedia/
+        src_full = self._normalize_media_src(src_full)
+        p = Path(src_full)                   # ../multimedia/foto.jpg
+        parent_dir = p.parent.as_posix()     # ../multimedia
+        stem = p.stem                        # 'foto'
+        ext = p.suffix or ".jpg"             # '.jpg' por defecto
+
+        movil = f"{stem}-movil{ext}"         # 'foto-movil.jpg'
+        tablet = f"{stem}-tablet{ext}"       # 'foto-tablet.jpg'
+        base = f"{stem}{ext}"                # 'foto.jpg'
+
+        def join_dir(filename):
+            return f"{parent_dir}/{filename}"
+
+        picture = ET.SubElement(parent, "picture")
+        ET.SubElement(picture, "source", media="(max-width: 465px)", srcset=join_dir(movil))
+        ET.SubElement(picture, "source", media="(max-width: 799px)", srcset=join_dir(tablet))
+        ET.SubElement(picture, "source", media="(min-width: 800px)", srcset=join_dir(base))
+        ET.SubElement(picture, "img", src=join_dir(base), alt=(alt or stem))
+        return picture
     
-    def add_picture(self, parent, sources, img_src, img_alt=""):
+    def add_video(self, parent, mp4_src, webm_src=None):
         """
-        Crea <picture> con múltiples <source media srcset> y un <img> de respaldo.
-        sources: lista de dicts con claves: {"media": "...","srcset":"..."}
-        """
-        picture = ET.SubElement(parent, "picture")
-        for s in sources:
-            ET.SubElement(picture, "source", media=s["media"], srcset=s["srcset"])
-        ET.SubElement(picture, "img", src=img_src, alt=img_alt)
-        return picture
+        Añade un bloque con los elementos necesarios como el siguiente:
+          <video controls preload="auto">
+            <source src="xxx.mp4" type="video/mp4"/>
+            <source src="xxx.webm" type="video/webm"/>
+          </video>
 
-    def add_picture_simple(self, parent, src, alt=""):
+        Si 'webm_src' es None, se infiere cambiando la extensión de 'mp4_src' a .webm.
         """
-        Crea <picture> con solo <img> (cuando no hay variantes responsive).
-        """
-        picture = ET.SubElement(parent, "picture")
-        ET.SubElement(picture, "img", src=src, alt=alt)
-        return picture
+        mp4_src = self._normalize_media_src(mp4_src)
+        if webm_src:
+            webm_src = self._normalize_media_src(webm_src)
+        else:
+            webm_src = Path(mp4_src).with_suffix(".webm").as_posix()
 
-    def add_video(self, parent, sources, controls=True, preload="auto"):
-        """
-        Crea <video> con múltiples <source>.
-        sources: lista de (src, mime) como ('multimedia/file.mp4','video/mp4')
-        """
-        attrs = {}
-        if controls:
-            attrs["controls"] = ""
-        if preload:
-            attrs["preload"] = preload
-        video = ET.SubElement(parent, "video", **attrs)
-        for src, mime in sources:
-            ET.SubElement(video, "source", src=src, type=mime)
+        video = ET.SubElement(parent, "video", controls="controls", preload="auto")
+        ET.SubElement(video, "source", src=mp4_src, type="video/mp4")
+        ET.SubElement(video, "source", src=webm_src, type="video/webm")
         return video
 
 
@@ -265,83 +306,17 @@ def generar_html(archivo_xml="circuitoEsquema.xml", archivo_html="InfoCircuito.h
     refs = [n.text.strip() for n in root.findall(".//u:referencias/u:ref", ns) if (n.text or "").strip()]
     if not refs:
         refs = [n.text.strip() for n in root.findall(".//referencias/ref") if (n.text or "").strip()]
-
-    # Fotos
-    from pathlib import PurePosixPath
-    # Buscar cualquier <foto> (con namespace o sin él)
-    candidatos_foto = root.findall(".//u:foto", ns) or root.findall(".//foto")
-
-    # Agrupamos por base (sin sufijo -movil/-tablet y sin extensión)
-    # fotos_por_base[base_key] = {"movil": "...", "tablet": "...", "desktop": "...", "alt": "..."}
-    fotos_por_base = {}
-
-    for f in candidatos_foto:
-        ruta_raw = (f.text or "").strip()
-        if not ruta_raw:
-            continue
-
-        # alt desde el atributo (soportamos con y sin tilde)
-        alt = f.get("descripción") or f.get("descripcion") or ""
-
-        # Como en el ejemplo de vídeo: anteponemos "../" directamente
-        # (si en el XML ya viene "multimedia/...", quedará "../multimedia/...")
-        src = f"../{ruta_raw}"
-
-        p = PurePosixPath(src)
-        stem = p.stem                 # nombre sin extensión
-        parent = p.parent
-
-        # Detectar variante por sufijo
-        if stem.endswith("-movil"):
-            base_stem = stem[:-6]     # quita '-movil'
-            variante = "movil"
-        elif stem.endswith("-tablet"):
-            base_stem = stem[:-7]     # quita '-tablet'
-            variante = "tablet"
-        else:
-            base_stem = stem          # desktop (sin sufijo)
-            variante = "desktop"
-
-        # Clave base (manteniendo la carpeta) sin sufijo ni extensión
-        base_key = str(parent / base_stem)
-
-        entry = fotos_por_base.setdefault(
-            base_key, {"movil": None, "tablet": None, "desktop": None, "alt": ""}
-        )
-        entry[variante] = str(p)
-        if alt and not entry["alt"]:
-            entry["alt"] = alt
-
-    # Videos
-    videos_por_stem = {}  # stem -> [{"src":..., "mime":..., "desc":...}, ...]
-    # 1) Buscar cualquier <video> en el documento (primero con namespace, si no, sin él)
-    candidatos = root.findall(".//u:video", ns) or root.findall(".//video")
-    for v in candidatos:
-        ruta_raw = (v.text or "").strip()
-        if not ruta_raw:
-            continue
-        desc = v.get("descripción") or ""
-        src = f"../{ruta_raw}"
-        p = PurePosixPath(src)
-        ext = p.suffix.lower()
-        if ext == ".mp4":
-            mime = "video/mp4"
-        elif ext == ".webm":
-            mime = "video/webm"
-        else:
-            continue
-        stem = str(p.with_suffix(""))  # nombre sin extensión, para agrupar mp4+webm
-        videos_por_stem.setdefault(stem, []).append({
-            "src": str(p),
-            "mime": mime,
-            "desc": desc
-        })
+    
+    # Media
+    fotos = root.findall(".//u:media/u:fotos/u:foto", ns)
+    videos = root.findall(".//u:media/u:videos/u:video", ns)
 
 
     # ---------- Construcción del HTML ----------
     doc = Html(lang="es",
                 titulo="MotoGP Desktop",
                 css_href="../estilo/estilo.css",
+                css2_href="../estilo/layout.css",
                 icon_href="../multimedia/icon.png",
                 nombreCircuito=nombre)
 
@@ -412,64 +387,28 @@ def generar_html(archivo_xml="circuitoEsquema.xml", archivo_html="InfoCircuito.h
         for pos_num, pil in posiciones:
             doc.add_table_row_with_headers(tbody, [pos_num, pil], col_ids)
 
-    # Sección Media
-    if fotos_por_base or videos_por_stem:
+    # Sección media
+    if fotos or videos:
         sec_media = doc.add_section()
         doc.add_h2(sec_media, "Media")
 
-        if fotos_por_base:
-            doc.add_h3(sec_media, "Imágenes")
-            for base_key, datos in sorted(fotos_por_base.items(), key=lambda kv: kv[0]):
-                movil = datos["movil"]
-                tablet = datos["tablet"]
-                desktop = datos["desktop"]
-                alt = datos["alt"] or ""  # evita None
+        # ----- Fotos -----
+        if fotos:
+            doc.add_h3(sec_media, "Fotos")
+            for f in fotos:
+                ruta = (f.text or "").strip()  # p.ej. "multimedia/curva1.jpg"
+                alt = (f.get("descripción") or "").strip()
+                if ruta:
+                    doc.add_picture(sec_media, ruta, alt)
 
-                # Construimos la lista de <source> SOLO con lo que exista en el XML
-                sources = []
-                if movil:
-                    sources.append({"media": "(max-width: 465px)", "srcset": movil})
-                if tablet:
-                    sources.append({"media": "(max-width: 799px)", "srcset": tablet})
-                if desktop:
-                    sources.append({"media": "(min-width: 800px)", "srcset": desktop})
-
-                # Fallback del <img>: preferimos desktop, luego tablet, luego móvil
-                img_src = desktop or tablet or movil
-                if not img_src:
-                    # Si no hay ninguna ruta válida, no renderizamos esta entrada
-                    continue
-
-                if sources:
-                    # Hay al menos una variante: <picture> con <source> + <img>
-                    doc.add_picture(sec_media, sources=sources, img_src=img_src, img_alt=alt)
-                else:
-                    # Solo una imagen sin variantes: <picture><img .../></picture>
-                    doc.add_picture_simple(sec_media, src=img_src, alt=alt)
-
-        # ----- Vídeos -----
-        if videos_por_stem:
-            doc.add_h3(sec_media, "Vídeos")
-            for stem, fuentes in sorted(videos_por_stem.items(), key=lambda kv: kv[0]):
-                # Ordena para mostrar MP4 primero (opcional pero habitual)
-                fuentes_ordenadas = sorted(
-                    fuentes,
-                    key=lambda x: 0 if x["mime"] == "video/mp4" else 1
-                )
-                sources = [(f["src"], f["mime"]) for f in fuentes_ordenadas]
-
-                # Si hay descripción en alguna fuente, úsala como pie de figura
-                # (tomanos la primera no vacía)
-                desc = next((f["desc"] for f in fuentes_ordenadas if f.get("desc")), "")
-
-                if desc:
-                    # <figure> envolviendo el vídeo + <figcaption>
-                    fig = ET.SubElement(sec_media, "figure")
-                    doc.add_video(fig, sources=sources, controls=True, preload="auto")
-                    cap = ET.SubElement(fig, "figcaption"); cap.text = desc
-                else:
-                    # Sin descripción: solo el vídeo
-                    doc.add_video(sec_media, sources=sources, controls=True, preload="auto")
+        # ----- Videos -----
+        if videos:
+            doc.add_h3(sec_media, "Videos")
+            for v in videos:
+                ruta_mp4 = (v.text or "").strip()  # p.ej. "multimedia/highlights.mp4"
+                if ruta_mp4:
+                    # El .webm se infiere automáticamente si no lo pasas
+                    doc.add_video(sec_media, ruta_mp4)
     
     # Sección (aside) referencias
     if refs:
