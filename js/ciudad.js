@@ -34,9 +34,11 @@ class Ciudad {
 
   // Escribe en el documento la información de las coordenadas con la alternativa de document.write()
   escribirCoordenadas() {
-    //const mensaje = document.createElement("p");
-    //mensaje.textContent = `Coordenadas: lat ${this.latitud}, lon ${this.longitud}`;
-    //document.body.appendChild(mensaje);
-    document.write(`Coordenadas: lat ${this.latitud}, lon ${this.longitud}`);
+    const mensaje = document.createElement("p");
+    mensaje.textContent = `Coordenadas: lat ${this.latitud}, lon ${this.longitud}`;
+    const main = document.querySelector("main");
+    if (main) {
+      main.appendChild(mensaje);
+    }
   }
 }
