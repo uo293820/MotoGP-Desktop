@@ -29,7 +29,8 @@ article img {
     height: 100%;
     position: absolute;
     border-radius: 0.5em;
-    background: #1C7CCC;
+    /* background: #1C7CCC; */
+    background: #125287;
     backface-visibility: hidden;
 }
 
@@ -41,6 +42,7 @@ article h3 {
     justify-content: center;
     align-items: center;
     margin: 0;
+    color: #F2F1E8;
 }
 
 /* Regla para rotar las imágenes y que se vean correctamente cuando se giran las cartas */

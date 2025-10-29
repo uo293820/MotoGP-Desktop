@@ -1,0 +1,26 @@
+/* Grid del juego de memoria (solo layout) */
+/* Especificidad: 001 */
+main {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  align-content: start;
+}
+
+/* El primer elemento de <main> (el <h2>) ocupa toda la fila 1 */
+/* Especificidad: 002 */
+main > h2 {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+@media (min-width: 320px) and (max-width: 799px) {
+  main {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  main > h2 {
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+}
