@@ -4,8 +4,8 @@
 /* Regla con el estilo general para las tarjetas del juego */
 /* especificidad: 002 */
 main article {
-    width: 20vw;
-    height: 20em;
+    width: 100%;
+    aspect-ratio: 3 / 4;
     position: relative;
     transform: scale(1);
     cursor: pointer;
